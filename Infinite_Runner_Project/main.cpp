@@ -36,10 +36,18 @@ struct BackGroundData
     float bgSpeed;
 };
 
+struct PlatformData
+{
+    Texture2D texture;
+    Rectangle rec;
+    Vector2 position;
+    float speed;
+};
+
 
 void DrawCharacterTexture(Texture2D texture, Rectangle source, Vector2 position, float textureScale, Color tint);
 void SlimeEnemy(Texture2D texture, Rectangle rect, Vector2 position, int frame, float deltaTime);
-bool GroundCheck(CharacterData characterData);
+bool GroundCheck(CharacterData characterData, PlatformData platformData);
 CharacterData UpdateData(CharacterData data,int maxFrame ,float deltaTime);
 BackGroundData UpdateBackground(BackGroundData data, float deltaTime);
 
@@ -51,7 +59,7 @@ int main()
     CharacterData player {
         {LoadTexture("textures/WarriorRun.png")},
         {0,0,player.texture.width / 8, player.texture.height},
-        {(SCREEN_WIDTH / 2 - player.characterRect.width / 2) / 6, SCREEN_HEIGHT - (player.characterRect.height * scale)},
+        {(SCREEN_WIDTH / 2 - player.characterRect.width / 2) / 6, ((SCREEN_HEIGHT - (player.characterRect.height * scale)) - 500.0)},
         0, 0, 1.0 / 12.0
     };
 
@@ -86,24 +94,41 @@ int main()
     BackGroundData FarBackground {
     {LoadTexture("textures/FarTrees.png")}, 
     {0.0, -FarBackground.background.height / 2}, 
-    {20.0}};
+    {90.0}};
 
     BackGroundData BackTreesBackground {
     {LoadTexture("textures/BackTrees.png")}, 
-    {0.0, 0.0}, 
-    {40.0}};
+    {0.0, -BackTreesBackground.background.height / 2}, 
+    {200.0}};
 
     BackGroundData Foreground {
     {LoadTexture("textures/Trees.png")}, 
-    {0.0, 0.0}, 
-    {80.0}};
+    {0.0, -Foreground.background.height / 2}, 
+    {400.0}};
 
-    Texture2D background = LoadTexture("textures/FarTrees.png");
-    Texture2D backTrees = LoadTexture("textures/BackTrees.png");
-    Texture2D foreGround = LoadTexture("textures/Trees.png");
+    BackGroundData TopTrees {
+    {LoadTexture("textures/TopTrees.png")}, 
+    {0.0, -TopTrees.background.height / 2}, 
+    {400.0}};
 
-    float bgX {};
-    Vector2 bgPosSpawnPosition = {background.width - 100, 0.0};
+    BackGroundData FarLights {
+    {LoadTexture("textures/FarLights.png")}, 
+    {0.0, -FarLights.background.height / 2}, 
+    {150.0}};
+
+    BackGroundData CloseLights {
+    {LoadTexture("textures/CloseLights.png")}, 
+    {0.0, -CloseLights.background.height / 2}, 
+    {300.0}};
+
+    PlatformData Ground{
+        {LoadTexture("textures/GroundGrass.png")},
+        {Ground.texture.width,Ground.texture.height},
+        {0.0, SCREEN_HEIGHT - Ground.texture.height},
+        {400.0}
+    };
+
+    BackGroundData listOfBackgrounds[6] {{FarBackground}, {FarLights}, {BackTreesBackground}, {Foreground}, {CloseLights}, {TopTrees}};
 
     while (!WindowShouldClose())
     {
@@ -112,37 +137,40 @@ int main()
         BeginDrawing();
         ClearBackground(GRAY);
 
-        //bgX -= 20 * deltaTime;
+        for (int i = 0; i < 6; i++)
+        {
+            Vector2 bgPosSpawnPosition = {listOfBackgrounds[i].background.width, 0.0};
+            listOfBackgrounds[i] = UpdateBackground(listOfBackgrounds[i], deltaTime);
 
-        //if (bgX <= -bgPosSpawnPosition)
-        //{
-        //    bgX = 0.0;
-        //}
-        
-        FarBackground = UpdateBackground(FarBackground, deltaTime);
+            if (listOfBackgrounds[i].position.x <= -bgPosSpawnPosition.x)
+            {
+                listOfBackgrounds[i].position.x = 0.0;
+            }
+            
+            DrawTextureEx(listOfBackgrounds[i].background, listOfBackgrounds[i].position, 0.0, 1.0, WHITE);
+            DrawTextureEx(listOfBackgrounds[i].background, {bgPosSpawnPosition.x + listOfBackgrounds[i].position.x, listOfBackgrounds[i].position.y}, 0.0, 1.0, WHITE);
+        }
 
-        //Vector2 bgPos {bgX, -background.height / 2};
-        //Vector2 bgPos2 {bgPosSpawnPosition + bgX, -background.height / 2};
+        Ground.position.x -= Ground.speed * deltaTime;
 
-        DrawTextureEx(FarBackground.background, FarBackground.position, 0.0, 1.0, WHITE);
-        DrawTextureEx(FarBackground.background, {bgPosSpawnPosition.x + FarBackground.position.x, FarBackground.position.y}, 0.0, 1.0, WHITE);
-
-        //DrawTextureEx(backTrees, bgPos, 0.0, 1.0, WHITE);
-        //DrawTextureEx(backTrees, bgPos2, 0.0, 1.0, WHITE);
-
-        //DrawTextureEx(foreGround, bgPos, 0.0, 1.0, WHITE);
-        //DrawTextureEx(foreGround, bgPos2, 0.0, 1.0, WHITE);
-
-
+        if (Ground.position.x <= -Ground.texture.width)
+        {
+            Ground.position.x = 0.0;
+        }
         DrawCharacterTexture(player.texture, player.characterRect, player.position, scale, WHITE);
         
+        DrawTextureEx(Ground.texture, Ground.position, 0.0, 1.0, GRAY);
+        DrawTextureEx(Ground.texture, {Ground.position.x + Ground.texture.width, Ground.position.y}, 0.0, 1.0, GRAY);
+
         for (int i = 0; i < enemySize; i++)
         {
             SlimeEnemy(enemies[i].texture, enemies[i].characterRect,enemies[i].position, enemies[i].frame, deltaTime);
             enemies[i].position.x += enemyVel * deltaTime;
         }
 
-        isGrounded = GroundCheck(player);
+        
+
+        isGrounded = GroundCheck(player, Ground);
         velocity = isGrounded ? 0 : velocity + (gravity * deltaTime);
 
         if (IsKeyPressed(KEY_SPACE) && isGrounded)
@@ -150,7 +178,6 @@ int main()
             velocity += jumpForce;    
         }
 
-        player.position.y += (velocity * deltaTime);
 
         if (isGrounded)
         {
@@ -162,16 +189,22 @@ int main()
             enemies[i] = UpdateData(enemies[i], 3, deltaTime);     
         } 
 
+        player.position.y += (velocity * deltaTime);
         EndDrawing();
     }
 
     UnloadTexture(player.texture); 
-    UnloadTexture(background);
     for (int i = 0; i < enemySize; i++)
     {
         UnloadTexture(enemies[i].texture);
     }
     
+    for (int i = 0; i < 4; i++)
+    {
+        UnloadTexture(listOfBackgrounds[i].background);
+    }
+    
+    UnloadTexture(Ground.texture);
 
     CloseWindow();   
 }
@@ -189,14 +222,14 @@ void SlimeEnemy(Texture2D texture, Rectangle rect, Vector2 position,int frame, f
     DrawCharacterTexture(texture, rect, position, scale, WHITE);
 }
 
-bool GroundCheck(CharacterData characterData)
-{
-    return characterData.position.y >= (SCREEN_HEIGHT - (characterData.characterRect.height * scale));
+bool GroundCheck(CharacterData characterData, PlatformData platformData)
+{    
+    return characterData.position.y >= ((platformData.position.y + 7.5) - (characterData.characterRect.height * scale));
 }
 
 BackGroundData UpdateBackground(BackGroundData data, float deltaTime)
 {
-    data.position.x -= data.bgSpeed * deltaTime;
+    data.position.x -= data.bgSpeed * deltaTime;    
 
     return data;
 }
